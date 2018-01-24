@@ -1,0 +1,88 @@
+FICZ
+Cyclosporin A
+FK-506
+BIBX1382
+EGFR/ErbB-2/ErbB-4 Inhibitor
+Erlotinib
+Gefitinib
+Vandetanib
+Thapsigargin
+Prostaglandin E1
+Prostaglandin E2
+17alpha-Ethynylestradiol
+17beta-Estradiol
+Budesonide
+Dexamethasone
+Hydrocortisone
+Prednisolone
+Astemizole
+Ketotifen Fumarate
+trans-Triprolidine
+M344
+Scriptaid
+Trichostatin A
+Vorinostat
+Atorvastatin
+Cerivastatin
+Fluvastatin
+Lovastatin
+Mevastatin
+Rosuvastatin
+Simvastatin
+17-AAG
+Geldanamycin
+Radicicol
+IKK 16
+IKK-2 Inhibitor IV
+PHA-408
+SC-514
+IL-17
+IL-17A
+CP-690550
+INCB-018424
+JAK Inhibitor 1
+PD098059
+PD184352
+SL 327
+UO126
+Colchicine
+Picropodophyllin
+Pironetin
+Vincristine Sulfate
+Epothilone B
+Epothilone D
+Paclitaxel Prodrug
+Paclitaxel
+Antimycin A
+Myxothiazol
+Oligomycin A
+Rotenone
+Shaoguamycin B
+Ibudilast
+ICI 63197
+R(-)rolipram
+Ro-20-1724
+GDC-0941
+LY294002
+GF 109203X
+Go 6983
+Ro-32-0432
+Bortezomib
+Epoxomicin
+PR-171
+9-cis-Retinoic Acid
+trans-Retinoic Acid
+AZD0530
+Dasatinib
+PP1
+Enbrel
+Humira
+Remicade
+Calcitriol
+Everolimus
+Rapamycin
+Temsirolimus
+AMG548
+BIRB-796
+RO 320-1195
+VX-745
