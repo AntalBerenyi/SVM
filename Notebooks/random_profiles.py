@@ -30,9 +30,17 @@ class RandomProfileGenerator:
         pass
 
     def get_random_profiles(self, prof_num=10, envelope=SCREENING, conf=_95):
+        """
+        Generate random profiles within the specified envelope values
+        :param prof_num:
+        :param envelope: int, envelope type
+        :param conf: float, confidence interval
+        :return: DataFrame, each row a random profile
+        """
         value_list = self.envelope_dict['java']['object']['void'][envelope]['object'][1]['void'][conf]['object']['void']
         # populate values from value_list into a dict, "system:marker':value
-        envelope = {}
+        #envelope = {}
+        envelope = get_envelope(envelope,conf)
         for item in value_list:
             envelope[item['string']] = item['float']
 
@@ -49,3 +57,13 @@ class RandomProfileGenerator:
         rp_df = pd.DataFrame(random_profiles, columns=self.system_markers)
 
         return rp_df
+
+    def get_envelope(self, envelope=SCREENING, conf=_95):
+
+        value_list = self.envelope_dict['java']['object']['void'][envelope]['object'][1]['void'][conf]['object']['void']
+        # populate values from value_list into a dict, "system:marker':value
+        envelope = {}
+        for item in value_list:
+            envelope[item['string']] = item['float']
+
+        return envelope
