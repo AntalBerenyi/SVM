@@ -16,6 +16,11 @@ class RandomProfileGenerator:
     _95 = 1
 
     def __init__(self, envelope_file='SigEnvelopeFile.xml', data_file='SVMData.xlsx'):
+        '''
+        Constructor initializing generator.
+        :param envelope_file: path to the significance envelope file
+        :param data_file: Path to profile data file. Used for column names.
+        '''
         with open(envelope_file) as f:
             xml_data = f.read()
             # parse xml string as a dictionary

@@ -1,6 +1,7 @@
 import pandas as pd
 from Notebooks.random_profiles import RandomProfileGenerator
 
+
 def run():
     """
     :rtype: None
