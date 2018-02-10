@@ -28,9 +28,9 @@ class ProfileReader:
                  [s.split(',')[4] for s in data.iloc[:, 0]]]
 
         tuples = list(zip(*index))
-        data.index = pd.MultiIndex.from_tuples(tuples, names=['mech', 'agent', 'conc'])
         # Drop profile column
         data.drop([data.columns.values[0]], inplace=True, axis=1)
+        data.index = pd.MultiIndex.from_tuples(tuples, names=['mech', 'agent', 'conc'])
 
         col_index = np.transpose([s.split(':') for s in data.columns.values])
         data.columns = pd.MultiIndex.from_tuples(list(zip(*col_index)), names=['System', 'Marker'])

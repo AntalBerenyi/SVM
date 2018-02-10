@@ -11,9 +11,10 @@ class TestProfileReader(TestCase):
         self.assertTrue('No such file or directory' in df)
 
     def test_parse_profiles(self):
-        pr = ProfileReader(data_file='Notebooks\\SVMData.xlsx',  mechanism_file='Notebooks\\data\\Final_Berg JBS 2013 Supplemental Table 3_For SVM14Dec2017 - Mechanisms.xlsx')
+        pr = ProfileReader(data_file='Notebooks\\data\\Final_Berg JBS 2013 Supplemental Table 3_For SVM14Dec2017.xlsx',
+                           mechanism_file='Notebooks\\data\\Final_Berg JBS 2013 Supplemental Table 3_For SVM14Dec2017 - Mechanisms.xlsx')
         df = pr.parse_profiles()
-        print(df.iloc[:5, 0:3])
+        print(df.iloc[288:315, 0:3])
 
     def test_v_line_positions(self):
         pr = ProfileReader(data_file='Notebooks\\SVMData.xlsx')
@@ -23,6 +24,12 @@ class TestProfileReader(TestCase):
         print(x_labels)
         print(v_line_positions)
 
+
+
+    def test_parse_profiles_mTor(self):
+        pr = ProfileReader(data_file='Notebooks\\SVMData.xlsx',  mechanism_file='Notebooks\\data\\Final_Berg JBS 2013 Supplemental Table 3_For SVM14Dec2017 - Mechanisms.xlsx')
+        df = pr.parse_profiles()
+        print(df.loc['mTOR inhibitor'].index.get_level_values(0))
 
 
 
