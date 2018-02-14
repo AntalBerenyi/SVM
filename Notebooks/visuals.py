@@ -20,9 +20,9 @@ from sklearn.metrics import f1_score, accuracy_score
 
 import matplotlib.pyplot as pl
 import numpy as np
-import sklearn.learning_curve as curves
+import sklearn.model_selection as curves
 from sklearn.tree import DecisionTreeRegressor
-from sklearn.cross_validation import ShuffleSplit, train_test_split
+from sklearn.model_selection import ShuffleSplit, train_test_split
 
 
 def distribution(data, transformed=False):
