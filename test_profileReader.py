@@ -1,5 +1,5 @@
 from unittest import TestCase
-from Notebooks.profile_reader import ProfileReader
+from Notebooks.scripts.profile_reader import ProfileReader
 import pandas as pd
 
 class TestProfileReader(TestCase):
