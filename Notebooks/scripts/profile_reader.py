@@ -8,7 +8,7 @@ class ProfileReader:
         self.data_file = data_file
         self.mechanism_file = mechanism_file
 
-    def parse_profiles(self):
+    def parse_profiles(self, keep_column_names=True, drop_profiles=True):
         data = ''
 
         try:
@@ -29,11 +29,13 @@ class ProfileReader:
 
         tuples = list(zip(*index))
         # Drop profile column
-        data.drop([data.columns.values[0]], inplace=True, axis=1)
+        if drop_profiles:
+            data.drop([data.columns.values[0]], inplace=True, axis=1)
         data.index = pd.MultiIndex.from_tuples(tuples, names=['mech', 'agent', 'conc'])
 
         col_index = np.transpose([s.split(':') for s in data.columns.values])
-        data.columns = pd.MultiIndex.from_tuples(list(zip(*col_index)), names=['System', 'Marker'])
+        if not keep_column_names:
+            data.columns = pd.MultiIndex.from_tuples(list(zip(*col_index)), names=['System', 'Marker'])
         return data
 
     def v_line_positions(self):
