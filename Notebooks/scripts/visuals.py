@@ -125,6 +125,7 @@ def evaluate(results, accuracy, f1):
     pl.tight_layout()
     pl.show()
     
+
 def evaluate2(results, accuracy, f1):
     """
     Visualization code to display results of various learners. Use after matplotlib update
@@ -137,7 +138,7 @@ def evaluate2(results, accuracy, f1):
     """
 
     # Create figure
-    fig, ax = pl.subplots(2, 3, figsize=(11, 7))
+    fig, ax = pl.subplots(2, 3, figsize=(13, 8), constrained_layout=True)
 
     # Constants
     bar_width = 0.3
@@ -187,12 +188,13 @@ def evaluate2(results, accuracy, f1):
     for i, learner in enumerate(results.keys()):
         patches.append(mpatches.Patch(color=colors[i], label=learner))
     ax[0,1].legend(handles=patches, bbox_to_anchor=(.5, 1.5),  \
-              loc='upper center', borderaxespad=0., ncol=3)
+              loc='upper center', borderaxespad=0., ncol=3, fontsize='large')
 
     # Aesthetics
     pl.suptitle("Performance Metrics for Three Supervised Learning Models", fontsize=16, y=1.10)
     pl.tight_layout() # this will make tiny plots after update
     pl.show()
+    
 
 
 def feature_plot(importances, X_train, y_train):

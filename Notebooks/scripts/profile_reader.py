@@ -9,6 +9,12 @@ class ProfileReader:
         self.mechanism_file = mechanism_file
 
     def parse_profiles(self, keep_column_names=True, drop_profiles=True):
+        '''
+        :param keep_column_names: If False, return the DataFrame with columns set to MultiIndex. With the default False
+                value the column names are like System:Readout.
+        :param drop_profiles: If True, drop the column that has the profile name.
+        :return: A DataFrame with data loaded from an Excel file.
+        '''
         data = ''
 
         try:
@@ -38,6 +44,8 @@ class ProfileReader:
             data.columns = pd.MultiIndex.from_tuples(list(zip(*col_index)), names=['System', 'Marker'])
         return data
 
+
+
     def v_line_positions(self):
         data = ''
         try:
@@ -60,3 +68,4 @@ class ProfileReader:
 
         v_line_positions.append(len(x))
         return x, x_labels, v_line_positions
+
