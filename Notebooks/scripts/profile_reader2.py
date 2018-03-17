@@ -128,14 +128,25 @@ class ProfileReader:
         v_line_positions.append(len(x))
         return x, x_labels, v_line_positions
 
-    def get_system_markers(self):
-        '''
+    def get_system_markers(self, agg=False):
+        """
         Get the System markers as a dta frame for convenience
-        :return:
-        '''
+        :return: DataFrame with columns 'System', 'Marker'
+        """
         sm = pd.DataFrame([s.split(':') for s in self.sm_columns])
         q = sm.groupby([0, 1]).count()
-        q.index.names = ['System', 'Readout']
+        q.index.rename(['System', 'Marker'], inplace=True)
+        q.reset_index(level=[0, 1], inplace=True)
+        if agg:
+            q = q.groupby(['System']).agg(lambda x: ', '.join(list(x))).reset_index()
+        return q
+
+    def get_system_marker_count(self):
+        """
+        Get the System markers as a dta frame for convenience
+        :return: DataFrame with columns 'System', 'Marker'
+        """
+        q = self.get_system_markers().groupby('System', as_index=False).count()
         return q
 
     def get_mechanism_count(self):
