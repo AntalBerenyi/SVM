@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from profile_reader2 import ProfileReader
+from scripts.profile_reader2 import ProfileReader
 
 class SVM():
 
@@ -8,7 +8,6 @@ class SVM():
 
     def predict(self, target_file="targets/ToxCast.xlsx"):
         pr = ProfileReader(data_file=target_file)
-        pr.get
 
         result = pd.DataFrame({"Profile": "None", "DV": {"m1": 0.8, "m2": 0.45, "m3": 0.12}})
         return result

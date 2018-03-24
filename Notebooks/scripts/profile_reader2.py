@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from Notebooks.scripts.random_profiles import RandomProfileGenerator
 
 class ProfileReader:
 
@@ -54,7 +55,7 @@ class ProfileReader:
                     'profile will use the entire profile name as index'
         :param column_level: int 1|2 Use one or multi-index. If column_level = 1, the column names are System:marker.
                     If column_level = 2, column index is ('System', 'Marker')
-        :param columns: Keep columns from the data file. It can be a list like ['mech', 'prof'] or a string like 'agent'
+        :param columns: Generated columns that can are derived from the profile name. It can be a list like ['agent', 'mech', 'prof'] or a string like 'agent'
         :return: A DataFrame with data loaded from an Excel file.
         '''
 
@@ -72,6 +73,7 @@ class ProfileReader:
             tuples = list(zip(*index2))
             if len(index2) == 1:
                 data2.index = index2[0]
+                data2.index.rename(index[0], inplace=True)
             else:
                 data2.index = pd.MultiIndex.from_tuples(tuples, names=index)
 
@@ -173,13 +175,29 @@ class ProfileReader:
     def get_agents(self):
         return list(self.df['Agent'].unique())
 
-    def impute(self, data, how='group_mean'):
+    @staticmethod
+    def impute(data, how='group_mean'):
+        """
+        Impute missing data. Care need to be taken that the data frame does not have str columns values otherwise you get
+        empty column values.
+        :param data:
+        :param how:
+        :return:
+        """
         grouped = data.groupby(data.index.get_level_values(0).values)
+
         def f(x):
             return x.fillna(x.mean())
         return grouped.transform(f)
 
-    def plot(self, data=None, agents=None, title='Profile Plots'):
+    def plot(self, data=None, agents=None, title='Profile Plots', ylim=None):
+        """
+
+        :param data: The data to plot
+        :param agents: Optional. Only plot the agents specified.
+        :param title: Optional, the title of the plot.
+        :return:
+        """
         if data is None:
             data = self.get_profile()
 
@@ -204,4 +222,47 @@ class ProfileReader:
         # add vertical lines
         for lp in v_line_positions:
             plt.axvline(x=lp - 0.5)
+        if ylim is not None:
+            plt.ylim(ylim)
         plt.show()
+        return ax
+
+    @staticmethod
+    def combine_pos_neg_class(pos_class, neg_class):
+        """
+        Combine the positive and negative classes
+        :param pos_class: A data frame with a single mechanism as index values
+        :param neg_class: A data frame with 'neg_class' as index values
+        :return: A combined DataFrame with positive class on top and negative class on bottom.
+        """
+        # Generate all classes by combining positive and negative classes
+        all_class = pd.concat([pos_class, neg_class]).reset_index(drop=False)
+        # encode mechanism to int values
+        mech = all_class[['mech']].iloc[0,0]
+        all_class['mech'] = all_class['mech'].map({mech: 1, 'neg_class': 0})
+        return all_class
+
+    @staticmethod
+    def get_x_y(all_class):
+        x = all_class.iloc[:, 1:]
+        y = all_class.iloc[:, 0]
+        return x, y
+
+    def get_features_labels(self, mech):
+        """
+        This method returns is the grand finale of all pre-processing steps combined. It reads in the training profile
+        data, the mechanism file and the envelop file. It combines the training data with the mechanisms labeling it. It
+        also generates random profiles and concatenates it with the positive class. Then it separates the features and
+        labels into two data structures and returns them.
+
+        :return:
+        """
+        data = self.get_profile(index=['mech'])
+        pos_class = data.loc[[mech]]
+
+        rpg = RandomProfileGenerator(envelope_file='data\\SigEnvelopeFile.xml', data_file=data, skip_cols=0)
+        neg_class = rpg.get_neg_class(prof_num=len(pos_class), dist='rand')
+        all_class = self.combine_pos_neg_class(pos_class, neg_class)
+
+        return self.get_x_y(all_class)
+

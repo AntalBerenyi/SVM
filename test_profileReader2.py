@@ -18,6 +18,13 @@ class TestProfileReader2(TestCase):
         df = pr.get_profile(index='prof')
         self.assertEqual(df.shape, (327, 84))
 
+    def test_get_profile_mech(self):
+        pr = ProfileReader(
+            data_file='Notebooks\\data\\Final_Berg JBS 2013 Supplemental Table 3_For SVM14Dec2017.xlsx',
+            mechanism_file='Notebooks\\data\\Final_Berg JBS 2013 Supplemental Table 3_For SVM14Dec2017 - Mechanisms.xlsx')
+        df = pr.get_profile(index=['mech'])
+        self.assertEqual(df.shape, (327, 84))
+
 
     def test_get_mechanisms(self):
         pr = ProfileReader(
