@@ -1,7 +1,9 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from Notebooks.scripts.random_profiles import RandomProfileGenerator
+#from Notebooks.scripts.random_profiles import RandomProfileGenerator
+from scripts.random_profiles import RandomProfileGenerator
+from sklearn.preprocessing import Normalizer
 
 class ProfileReader:
 
@@ -14,7 +16,6 @@ class ProfileReader:
         self.sm_columns = []
         self.read_excel_()
         # this is a map of what the user specifies to the actual column name in the data frame
-
 
     def read_excel_(self):
         '''
@@ -50,7 +51,7 @@ class ProfileReader:
 
     def get_profile(self, index=None, column_level=1, columns=None):
         '''
-        Read Excel file containing BioMAP profile.
+        Read Excel file containing BioMAP profile. Make a copy of self.profile.
         :param index: str or array like. What part of the profile to use as index. For example 'profile' or ['agent', 'conc', 'mech']
                     'profile will use the entire profile name as index'
         :param column_level: int 1|2 Use one or multi-index. If column_level = 1, the column names are System:marker.
@@ -190,16 +191,20 @@ class ProfileReader:
             return x.fillna(x.mean())
         return grouped.transform(f)
 
-    def plot(self, data=None, agents=None, title='Profile Plots', ylim=None):
+    def plot(self, data=None, agents=None, title='Profile Plots', ylim=None, index=None, **kwds):
         """
 
         :param data: The data to plot
         :param agents: Optional. Only plot the agents specified.
         :param title: Optional, the title of the plot.
+        :param ylim: Optional, y limits of the plot
+        :param index: Optional: if supplied and data is not supplied, self.df will be indexed therefore
+                        the plot legend will use index.
+        :param kwds: keywords Options to pass to matplotlib plotting method
         :return:
         """
         if data is None:
-            data = self.get_profile()
+            data = self.get_profile(index)
 
         if agents is not None:
             if isinstance(agents, str):
@@ -212,7 +217,8 @@ class ProfileReader:
         ax = data.T.plot(
             figsize=(15, 8),
             sharey=True,
-            subplots=False);
+            subplots=False,
+            **kwds);
 
         plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.);
         x, x_labels, v_line_positions = self.v_line_positions(data.columns.values);
@@ -227,6 +233,17 @@ class ProfileReader:
         plt.show()
         return ax
 
+    def get_pos_class(self, mech):
+        return self.get_profile(index=['mech']).loc[[mech]]
+
+    def get_neg_class(self, data, rpg=None, prof_num=None, dist='rand'):
+        if rpg is None:
+            rpg = RandomProfileGenerator(envelope_file='data\\SigEnvelopeFile.xml', data_file=data, skip_cols=0)
+        if prof_num is None:
+            prof_num = len(data)
+        neg_class = rpg.get_neg_class(prof_num=prof_num, dist=dist )
+        return neg_class
+
     @staticmethod
     def combine_pos_neg_class(pos_class, neg_class):
         """
@@ -237,15 +254,39 @@ class ProfileReader:
         """
         # Generate all classes by combining positive and negative classes
         all_class = pd.concat([pos_class, neg_class]).reset_index(drop=False)
-        # encode mechanism to int values
-        mech = all_class[['mech']].iloc[0,0]
-        all_class['mech'] = all_class['mech'].map({mech: 1, 'neg_class': 0})
         return all_class
 
-    @staticmethod
-    def get_x_y(all_class):
+    def get_x_y(self, mech, impute='group_mean', normalize=None, prof_num=None):
+        """
+        Convenience method to split data into X and y. Treat one mechanism at a time.
+        :param mech: Get data portion for mechanism class
+        :param impute: None | 'group_mean'. If not None, impute the positive class using this imputing strategy.
+        :param normalize: 'l1', 'l2', 'max'. Normalize input profile vectors to unit length. See sklearn.preprocessing.Normalizer
+        :param prof_num: None|int. If int then the generate this many members of negative class.
+        :return: The training data and the trainig labels.
+        """
+        data = self.get_profile(index=['mech'])
+        if impute is not None:
+            data = self.impute(data, how=impute)
+
+        pos_class = data.loc[[mech]]
+        neg_class = self.get_neg_class(data=pos_class, prof_num=prof_num)
+
+        all_class = self.combine_pos_neg_class(pos_class, neg_class)
+
+        # encode mechanism to int values
+        mech = all_class[['mech']].iloc[0,0]
+        y = all_class['mech'].map({mech: 1, 'neg_class': 0})
+
         x = all_class.iloc[:, 1:]
-        y = all_class.iloc[:, 0]
+        x.set_index(y, inplace=True)
+
+        if normalize is not None:
+            scaler = Normalizer(norm=normalize)  # l1, l2, max
+            cval = x.columns.values
+            x = pd.DataFrame(scaler.fit_transform(x))
+            x.columns = cval
+
         return x, y
 
     def get_features_labels(self, mech):
