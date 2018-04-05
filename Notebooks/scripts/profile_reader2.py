@@ -1,15 +1,17 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-#from Notebooks.scripts.random_profiles import RandomProfileGenerator
 from scripts.random_profiles import RandomProfileGenerator
 from sklearn.preprocessing import Normalizer
+
+from IPython.core.debugger import set_trace
 
 class ProfileReader:
 
     def __init__(self, data_file, mechanism_file=None):
         self.df = ''
         self.profile_length = 0
+        self.profile_column_name = ''
         self.name_map = {}
         self.data_file = data_file
         self.mechanism_file = mechanism_file
@@ -26,20 +28,22 @@ class ProfileReader:
         :return: The indexed data frame with Profile data.
         '''
 
-        try:
-            self.df = pd.read_excel(self.data_file)
-            self.sm_columns = self.df.columns.values[1:]  # keep only System:marker.
-            self.profile_length = len(self.sm_columns)
-            self.name_map = {'agent': 'Agent', 'conc': 'Concentration', 'mech': 'Mechanism',
-                             'prof': self.df.columns.values[0]}
-        except Exception as err:
-            return format(err)
+        #try:
+        self.df = pd.read_excel(self.data_file)
+        self.profile_column_name = self.df.columns.values[0]
+        self.sm_columns = self.df.columns.values[1:]  # keep only System:marker.
+        self.profile_length = len(self.sm_columns)
+        self.name_map = {'agent': 'Agent', 'conc': 'Concentration', 'mech': 'Mechanism',
+                         'prof': self.df.columns.values[0]}
+        #except FileNotFoundError as err:
+        #    raise FileNotFoundError(str(err))
 
         mech = ''
         if self.mechanism_file is not None:
             mech = pd.read_excel(self.mechanism_file)
         else:
-            mech = pd.DataFrame({'Mechanism': ['unknown' for _ in range(len(self.df))]})
+            mech = pd.DataFrame({self.profile_column_name: self.df.iloc[:, 0],
+                'Mechanism': ['unknown' for _ in range(len(self.df))]})
 
         # merge mechanism date into Data frame, adding new column 'Mechanism'
         self.df = pd.merge(left=self.df, right=mech, how='left')
@@ -51,7 +55,7 @@ class ProfileReader:
 
     def get_profile(self, index=None, column_level=1, columns=None):
         '''
-        Read Excel file containing BioMAP profile. Make a copy of self.profile.
+        Get the processed DataFrame with the specified indices and columns. Make a copy of self.profile.
         :param index: str or array like. What part of the profile to use as index. For example 'profile' or ['agent', 'conc', 'mech']
                     'profile will use the entire profile name as index'
         :param column_level: int 1|2 Use one or multi-index. If column_level = 1, the column names are System:marker.
@@ -176,6 +180,12 @@ class ProfileReader:
     def get_agents(self):
         return list(self.df['Agent'].unique())
 
+    def get_profile_names(self):
+        """
+        :return: The profile names as a Series
+        """
+        return self.df.iloc[:, 0]
+
     @staticmethod
     def impute(data, how='group_mean'):
         """
@@ -191,7 +201,10 @@ class ProfileReader:
             return x.fillna(x.mean())
         return grouped.transform(f)
 
-    def plot(self, data=None, agents=None, title='Profile Plots', ylim=None, index=None, **kwds):
+
+
+    def plot(self, data=None, agents=None, title='Profile Plots', ylim=None, index=None, figsize=(15, 8),
+             legend=True, xticks=True, show=True, **kwds):
         """
 
         :param data: The data to plot
@@ -200,6 +213,7 @@ class ProfileReader:
         :param ylim: Optional, y limits of the plot
         :param index: Optional: if supplied and data is not supplied, self.df will be indexed therefore
                         the plot legend will use index.
+        :param figsize: plot size
         :param kwds: keywords Options to pass to matplotlib plotting method
         :return:
         """
@@ -215,22 +229,32 @@ class ProfileReader:
                 data = data.query(q)
 
         ax = data.T.plot(
-            figsize=(15, 8),
+            figsize=figsize,
             sharey=True,
             subplots=False,
             **kwds);
 
-        plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.);
+        if legend:
+            plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.);
+        else:
+            ax.legend_.remove()
+        #set_trace()
         x, x_labels, v_line_positions = self.v_line_positions(data.columns.values);
-        plt.xticks(x, x_labels, rotation='vertical');
+
+        if xticks:
+            #plt.xticks(x, x_labels, rotation='vertical');
+            ax.set_xticks(x)
+            ax.set_xticklabels(x_labels, rotation=90)
+
         plt.ylabel('Log ratio');
-        plt.suptitle(title, fontsize=16)
+        plt.title(title)
         # add vertical lines
         for lp in v_line_positions:
-            plt.axvline(x=lp - 0.5)
+            ax.axvline(x=lp - 0.5)
         if ylim is not None:
             plt.ylim(ylim)
-        plt.show()
+        if show:
+            plt.show()
         return ax
 
     def get_pos_class(self, mech):
@@ -287,7 +311,7 @@ class ProfileReader:
             x = pd.DataFrame(scaler.fit_transform(x))
             x.columns = cval
 
-        return x, y
+        return x, np.array(y)
 
     def get_features_labels(self, mech):
         """
@@ -306,4 +330,146 @@ class ProfileReader:
         all_class = self.combine_pos_neg_class(pos_class, neg_class)
 
         return self.get_x_y(all_class)
+
+
+class TrainedSystemMarkers:
+    def __init__(self, add=0):
+        ''' System-markers trained. The target profiles must have the same system-markers! '''
+        self.trained_sm = [
+            'BrEPI_IL-1b/TNF-a/IFN-g_24:CD87/uPAR',
+            'BrEPI_IL-1b/TNF-a/IFN-g_24:CXCL10/IP-10',
+            'BrEPI_IL-1b/TNF-a/IFN-g_24:CXCL9/MIG',
+            'BrEPI_IL-1b/TNF-a/IFN-g_24:HLA-DR',
+            'BrEPI_IL-1b/TNF-a/IFN-g_24:IL-1alpha',
+            'BrEPI_IL-1b/TNF-a/IFN-g_24:MMP-1',
+            'BrEPI_IL-1b/TNF-a/IFN-g_24:PAI-I',
+            'BrEPI_IL-1b/TNF-a/IFN-g_24:SRB', 'BrEPI_IL-1b/TNF-a/IFN-g_24:tPA',
+            'BrEPI_IL-1b/TNF-a/IFN-g_24:uPA',
+            'HDFn_IL-1b/TNF-a/IFN-g/EGF/FGF/PDGFbb_24:CD106/VCAM-1',
+            'HDFn_IL-1b/TNF-a/IFN-g/EGF/FGF/PDGFbb_24:Collagen III',
+            'HDFn_IL-1b/TNF-a/IFN-g/EGF/FGF/PDGFbb_24:CXCL10/IP-10',
+            'HDFn_IL-1b/TNF-a/IFN-g/EGF/FGF/PDGFbb_24:CXCL8/IL-8',
+            'HDFn_IL-1b/TNF-a/IFN-g/EGF/FGF/PDGFbb_24:CXCL9/MIG',
+            'HDFn_IL-1b/TNF-a/IFN-g/EGF/FGF/PDGFbb_24:EGFR',
+            'HDFn_IL-1b/TNF-a/IFN-g/EGF/FGF/PDGFbb_24:M-CSF',
+            'HDFn_IL-1b/TNF-a/IFN-g/EGF/FGF/PDGFbb_24:MMP-1',
+            'HDFn_IL-1b/TNF-a/IFN-g/EGF/FGF/PDGFbb_24:PAI-I',
+            'HDFn_IL-1b/TNF-a/IFN-g/EGF/FGF/PDGFbb_24:Proliferation_72hr',
+            'HDFn_IL-1b/TNF-a/IFN-g/EGF/FGF/PDGFbb_24:SRB',
+            'HDFn_IL-1b/TNF-a/IFN-g/EGF/FGF/PDGFbb_24:TIMP-2',
+            'HEK/HDFn_IL-1b/TNF-a/IFN-g/TGF-b_24:CCL2/MCP-1',
+            'HEK/HDFn_IL-1b/TNF-a/IFN-g/TGF-b_24:CD54/ICAM-1',
+            'HEK/HDFn_IL-1b/TNF-a/IFN-g/TGF-b_24:CXCL10/IP-10',
+            'HEK/HDFn_IL-1b/TNF-a/IFN-g/TGF-b_24:IL-1alpha',
+            'HEK/HDFn_IL-1b/TNF-a/IFN-g/TGF-b_24:MMP-9',
+            'HEK/HDFn_IL-1b/TNF-a/IFN-g/TGF-b_24:SRB',
+            'HEK/HDFn_IL-1b/TNF-a/IFN-g/TGF-b_24:TIMP-2',
+            'HEK/HDFn_IL-1b/TNF-a/IFN-g/TGF-b_24:uPA',
+            'HUVEC/PBMC_LPS_24:CCL2/MCP-1', 'HUVEC/PBMC_LPS_24:CD106/VCAM-1',
+            'HUVEC/PBMC_LPS_24:CD142/Tissue Factor', 'HUVEC/PBMC_LPS_24:CD40',
+            'HUVEC/PBMC_LPS_24:CD62E/E-Selectin',
+            'HUVEC/PBMC_LPS_24:CXCL8/IL-8', 'HUVEC/PBMC_LPS_24:IL-1alpha',
+            'HUVEC/PBMC_LPS_24:M-CSF', 'HUVEC/PBMC_LPS_24:sPGE2',
+            'HUVEC/PBMC_LPS_24:SRB', 'HUVEC/PBMC_LPS_24:sTNF-alpha',
+            'HUVEC/PBMC_SEB/TSST_24:CCL2/MCP-1', 'HUVEC/PBMC_SEB/TSST_24:CD38',
+            'HUVEC/PBMC_SEB/TSST_24:CD40',
+            'HUVEC/PBMC_SEB/TSST_24:CD62E/E-Selectin',
+            'HUVEC/PBMC_SEB/TSST_24:CD69', 'HUVEC/PBMC_SEB/TSST_24:CXCL8/IL-8',
+            'HUVEC/PBMC_SEB/TSST_24:CXCL9/MIG',
+            'HUVEC/PBMC_SEB/TSST_24:PBMC Cytotoxicity',
+            'HUVEC/PBMC_SEB/TSST_24:Proliferation',
+            'HUVEC/PBMC_SEB/TSST_24:SRB',
+            'HUVEC_IL-1b/TNF-a/IFN-g_24:CCL2/MCP-1',
+            'HUVEC_IL-1b/TNF-a/IFN-g_24:CD106/VCAM-1',
+            'HUVEC_IL-1b/TNF-a/IFN-g_24:CD141/Thrombomodulin',
+            'HUVEC_IL-1b/TNF-a/IFN-g_24:CD142/Tissue Factor',
+            'HUVEC_IL-1b/TNF-a/IFN-g_24:CD54/ICAM-1',
+            'HUVEC_IL-1b/TNF-a/IFN-g_24:CD62E/E-Selectin',
+            'HUVEC_IL-1b/TNF-a/IFN-g_24:CD87/uPAR',
+            'HUVEC_IL-1b/TNF-a/IFN-g_24:CXCL8/IL-8',
+            'HUVEC_IL-1b/TNF-a/IFN-g_24:CXCL9/MIG',
+            'HUVEC_IL-1b/TNF-a/IFN-g_24:HLA-DR',
+            'HUVEC_IL-1b/TNF-a/IFN-g_24:Proliferation',
+            'HUVEC_IL-1b/TNF-a/IFN-g_24:SRB',
+            'HUVEC_IL-4/Histamine_24:CCL2/MCP-1',
+            'HUVEC_IL-4/Histamine_24:CCL26/Eotaxin-3',
+            'HUVEC_IL-4/Histamine_24:CD106/VCAM-1',
+            'HUVEC_IL-4/Histamine_24:CD62P/P-selectin',
+            'HUVEC_IL-4/Histamine_24:CD87/uPAR', 'HUVEC_IL-4/Histamine_24:SRB',
+            'HUVEC_IL-4/Histamine_24:VEGFR2',
+            'CASMC_HCL_IL-1b/TNF-a/IFN-g_24:CCL2/MCP-1',
+            'CASMC_HCL_IL-1b/TNF-a/IFN-g_24:CD106/VCAM-1',
+            'CASMC_HCL_IL-1b/TNF-a/IFN-g_24:CD141/Thrombomodulin',
+            'CASMC_HCL_IL-1b/TNF-a/IFN-g_24:CD142/Tissue Factor',
+            'CASMC_HCL_IL-1b/TNF-a/IFN-g_24:CD87/uPAR',
+            'CASMC_HCL_IL-1b/TNF-a/IFN-g_24:CXCL8/IL-8',
+            'CASMC_HCL_IL-1b/TNF-a/IFN-g_24:CXCL9/MIG',
+            'CASMC_HCL_IL-1b/TNF-a/IFN-g_24:HLA-DR',
+            'CASMC_HCL_IL-1b/TNF-a/IFN-g_24:IL-6',
+            'CASMC_HCL_IL-1b/TNF-a/IFN-g_24:LDLR',
+            'CASMC_HCL_IL-1b/TNF-a/IFN-g_24:M-CSF',
+            'CASMC_HCL_IL-1b/TNF-a/IFN-g_24:Proliferation',
+            'CASMC_HCL_IL-1b/TNF-a/IFN-g_24:Serum Amyloid A',
+            'CASMC_HCL_IL-1b/TNF-a/IFN-g_24:SRB'
+        ]
+
+    def __call__(self):
+        return self.trained_sm
+
+
+class TargetProcessor(ProfileReader):
+    """
+    Convenience class to read and validate target excel file. The target file must have the same number of Syste:Markers
+    as the the trained set.
+    """
+
+    def __init__(self, data_file):
+        """
+        Initialize the target profiles and make sure we dont have missing columns or extra columns.
+        :param data_file: The target profile data we want to predict. Call the super init method to initialize. Then
+        remove the extra columns and reorder the profile in the same order as the trained model.
+        """
+        super().__init__(data_file, mechanism_file=None)
+
+        # Note: The model was trained with data from 'SMC_IL-1b/TNF-a/IFN-g_24' system.
+        # In the TOXCast data set the this was replaced with 'CASMC_HCL_IL-1b/TNF-a/IFN-g_24' in feature names and
+        # can be used in place of 'SMC_IL-1b/TNF-a/IFN-g_24'.
+
+        # rename SMC to CASMC
+        renamed = {s: s.replace('SMC_IL-1b/TNF-a/IFN-g_24', 'CASMC_HCL_IL-1b/TNF-a/IFN-g_24') for s in
+                   self.df.columns.values if s.startswith('SMC_IL-1b/TNF-a/IFN-g_24')}
+        self.df.rename(columns=renamed, inplace=True)
+        self.sm_columns = self.df.columns.values[1:-3]  # keep only System:marker.
+
+        # if missing columns, delete data, print message
+        cols_not_in_target = list(set(TrainedSystemMarkers()()) - set(self.sm_columns))
+        if len(cols_not_in_target) > 0:
+            print('Target file missing system:markers:', cols_not_in_target)
+            self.df.drop(self.df.index, inplace=True)
+            return
+
+        print("Removing extra target colunms:", list(set(self.sm_columns) - set(TrainedSystemMarkers()())))
+
+        # remove those system-markers that were not trained and rearrange
+        self.df = self.df[[self.profile_column_name, *TrainedSystemMarkers()(), 'Mechanism', 'Agent', 'Concentration']]
+
+        self.sm_columns = self.df.columns.values[1:-3]  # keep only System:marker.
+        self.profile_length = len(self.sm_columns)
+
+    def check_missing_sm(self):
+        """
+        Make sure we have the right system:readouts. We cant do SVM with missing data.
+        :param data_file: Read this file in before processing.
+        :return: A list of System:readouts missing from the target data file.
+        """
+        return list(set(TrainedSystemMarkers()()) - set(self.sm_columns))
+
+    def profile_row(self):
+        """
+        Iterate over target data one row at a time.
+        :return: str, Series. The profile name and the data as a Series.
+        """
+        data = self.get_profile(index=['prof'])
+        for profile, row in data.iterrows():
+            yield profile, row
 

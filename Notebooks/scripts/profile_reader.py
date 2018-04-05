@@ -46,18 +46,22 @@ class ProfileReader:
 
 
 
-    def v_line_positions(self):
-        data = ''
-        try:
+    def v_line_positions(self, col_names=None):
+        '''
+
+        :param col_names: list or None. If none use the leaded profile sys-markers. If not None, use the supplied list.
+        :return:
+        '''
+
+        if col_names is None:
             data = pd.read_excel(self.data_file)
-        except Exception as err:
-            return format(err)
+            col_names = data.columns.values[1:]
 
         last_sys = ""
-        x = [i for i in range(len(data.columns.values) - 1)]
+        x = [i for i in range(len(col_names))]
         x_labels = []
         v_line_positions = []
-        for i, sm in enumerate(data.columns.values[1:]):
+        for i, sm in enumerate(col_names):
             s, m = sm.split(':')
             if (last_sys != s):
                 x_labels.append("{}:{}".format(s, m))

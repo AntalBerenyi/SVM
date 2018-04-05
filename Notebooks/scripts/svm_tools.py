@@ -62,7 +62,7 @@ def grid_search_svm(X, y, scorer=precision_score, cv='default', parameters= {'C'
 
 
 def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None,
-                        n_jobs=1, train_sizes=np.linspace(.1, 1.0, 5)):
+                        n_jobs=1, train_sizes=np.linspace(.1, 1.0, 5), figure=True):
     """
     Generate a simple plot of the test and training learning curve.
 
@@ -104,7 +104,8 @@ def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None,
     n_jobs : integer, optional
         Number of jobs to run in parallel (default 1).
     """
-    plt.figure()
+    if figure:
+        plt.figure()
     plt.title(title)
     if ylim is not None:
         plt.ylim(*ylim)
