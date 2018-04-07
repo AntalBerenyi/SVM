@@ -1,11 +1,18 @@
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.svm import SVC
+from imblearn.over_sampling import SMOTE
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import make_scorer, accuracy_score, precision_score, recall_score
 from sklearn.model_selection import learning_curve, ShuffleSplit, StratifiedShuffleSplit, _validation
+from sklearn.externals import joblib
+from scripts.profile_reader2 import ProfileReader, TargetProcessor
 
 class RS:
+    '''
+    Random seed class. Make seed value globally accessible.
+    '''
     seed = 42
 
     @staticmethod
@@ -138,3 +145,72 @@ def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None,
 
     plt.legend(loc="best")
     return plt
+
+
+def train_svm(data_file='data/Final_Berg JBS 2013 Supplemental Table 3_For SVM14Dec2017.xlsx',
+                       mechanism_file='data/Final_Berg JBS 2013 Supplemental Table 3_For SVM14Dec2017 - Mechanisms.xlsx',
+              impute='group_mean', parameters={'C': [500]}, normalize='l2', prof_num=30, dump='svm_classifiers.pkl'):
+    '''
+
+    :param data_file:
+    :param mechanism_file:
+    :param impute:
+    :param normalize:
+    :param prof_num:
+    :param dump:
+    :return:
+    '''
+    pr = ProfileReader(data_file='data/Final_Berg JBS 2013 Supplemental Table 3_For SVM14Dec2017.xlsx',
+                       mechanism_file='data/Final_Berg JBS 2013 Supplemental Table 3_For SVM14Dec2017 - Mechanisms.xlsx')
+
+    mechs = pr.get_mechanism_count()['Mechanism']
+    clfs = {}
+
+    # ensure reprodicible results
+    np.random.seed(442)
+    for mech in mechs[0:]:
+        # get training data with 100 negative class
+        X, y = pr.get_x_y(mech=mech, impute='group_mean', normalize='l2', prof_num=30)
+        X0 = X[y == 1]
+
+        # Synthetic Minority Oversampling Technique. Bring the positive class numbers up to the random negative class.
+        k_n = min(Counter(y)[1] - 1, 5)
+        X, y = SMOTE(k_neighbors=k_n, kind='regular').fit_sample(X, y)
+
+        best_clf = grid_search_svm(X, y, scorer=precision_score, parameters=parameters)
+
+        clfs.update({mech: best_clf})
+
+    if dump:
+        joblib.dump(clfs, 'svm_classifiers.pkl')
+    return clfs
+
+
+def predict_svm(data_file, classifier_file='svm_classifiers.pkl', include_negative=False, pivot=True):
+    pr = TargetProcessor(data_file=data_file)
+    clfs = joblib.load(classifier_file)
+    target = pr.get_target()
+
+    ptable0 = pd.DataFrame({'Profile': [],
+                            'Mechanism': [],
+                            'Decision Value': [],
+                            'Prediction': []})
+    for mech, clf in clfs.items():
+        pred = clf.predict(target)
+        dv = clf.decision_function(target)
+        ptable = pd.DataFrame({'Profile': target.index.values,
+                               'Mechanism': [mech] * len(target),
+                               'Decision Value': dv,
+                               'Prediction': pred})
+        ptable0 = pd.concat([ptable0, ptable])
+        if ~include_negative:
+            ptable0 = ptable0[ptable0.Prediction == 1]
+
+    ptable0 = ptable0[['Profile', 'Mechanism', 'Decision Value', 'Prediction']].sort_values(
+        by=['Profile', 'Decision Value'], ascending=[True, False])
+
+    if pivot:
+        ptable0 = ptable0.pivot(index='Profile', columns='Mechanism', values='Decision Value')
+
+
+    return ptable0

@@ -436,7 +436,7 @@ class TargetProcessor(ProfileReader):
         # can be used in place of 'SMC_IL-1b/TNF-a/IFN-g_24'.
 
         # rename SMC to CASMC
-        renamed = {s: s.replace('SMC_IL-1b/TNF-a/IFN-g_24', 'CASMC_HCL_IL-1b/TNF-a/IFN-g_24') for s in
+        renamed = {s: s.replace('SMC_IL-1b/TNF-a/IFN-g_24:', 'CASMC_HCL_IL-1b/TNF-a/IFN-g_24:') for s in
                    self.df.columns.values if s.startswith('SMC_IL-1b/TNF-a/IFN-g_24')}
         self.df.rename(columns=renamed, inplace=True)
         self.sm_columns = self.df.columns.values[1:-3]  # keep only System:marker.
@@ -472,4 +472,10 @@ class TargetProcessor(ProfileReader):
         data = self.get_profile(index=['prof'])
         for profile, row in data.iterrows():
             yield profile, row
+
+    def get_target(self):
+        """
+        :return: DataFrame the data portion of the target profiles, prfile as index.
+        """
+        return self.get_profile(index=['prof'])
 
