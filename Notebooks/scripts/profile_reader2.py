@@ -53,6 +53,13 @@ class ProfileReader:
 
         return self.df
 
+    def get_profile_count(self):
+        '''
+        How many profiles are in the target?
+        :return: int
+        '''
+        return len(self.df)
+
     def get_profile(self, index=None, column_level=1, columns=None):
         '''
         Get the processed DataFrame with the specified indices and columns. Make a copy of self.profile.
@@ -192,8 +199,8 @@ class ProfileReader:
         Impute missing data. Care need to be taken that the data frame does not have str columns values otherwise you get
         empty column values.
         :param data:
-        :param how:
-        :return:
+        :param how: str 'group_mean'. Calculate the mean value of the missing data point by taking the average readout value within class.
+        :return: The profile data with imputed data points.
         """
         grouped = data.groupby(data.index.get_level_values(0).values)
 
@@ -285,7 +292,7 @@ class ProfileReader:
         Convenience method to split data into X and y. Treat one mechanism at a time.
         :param mech: Get data portion for mechanism class
         :param impute: None | 'group_mean'. If not None, impute the positive class using this imputing strategy.
-        :param normalize: 'l1', 'l2', 'max'. Normalize input profile vectors to unit length. See sklearn.preprocessing.Normalizer
+        :param normalize: str 'l1', 'l2', 'max'. Normalize input profile vectors to unit length. See sklearn.preprocessing.Normalizer
         :param prof_num: None|int. If int then the generate this many members of negative class.
         :return: The training data and the trainig labels.
         """
@@ -333,7 +340,7 @@ class ProfileReader:
 
 
 class TrainedSystemMarkers:
-    def __init__(self, add=0):
+    def __init__(self):
         ''' System-markers trained. The target profiles must have the same system-markers! '''
         self.trained_sm = [
             'BrEPI_IL-1b/TNF-a/IFN-g_24:CD87/uPAR',
