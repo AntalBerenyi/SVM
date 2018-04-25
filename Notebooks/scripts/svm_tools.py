@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -9,7 +10,13 @@ from sklearn.metrics import make_scorer, accuracy_score, precision_score, recall
 from sklearn.model_selection import learning_curve, ShuffleSplit, StratifiedShuffleSplit, _validation
 from sklearn.externals import joblib
 from scripts.profile_reader2 import ProfileReader, TargetProcessor
-import seaborn as sns; sns.set() # set to default
+import seaborn as sns;
+
+#sns.set()  # set to default
+pd.options.display.max_rows = 500
+pd.options.display.max_columns = 200
+
+
 
 class RS:
     '''
@@ -26,7 +33,8 @@ class RS:
         return RS.seed
 
 
-def grid_search_svm(X, y, scorer=precision_score, cv='default', parameters= {'C': [0.001, 0.01, 0.1, 1.0, 10, 100, 1000]}):
+def grid_search_svm(X, y, scorer=precision_score, cv='default',
+                    parameters={'C': [0.001, 0.01, 0.1, 1.0, 10, 100, 1000]}):
     """
     GridSearch and return the best estimator
     :param X: The feature set
@@ -148,25 +156,27 @@ def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None,
     plt.legend(loc="best")
     return plt
 
+
 class SVM:
-    def __init__(self, data_file='../targets/target.xlsx', classifier_file='svm_classifiers.pkl' ):
+    def __init__(self, target_data_file='../targets/target.xlsx', classifier_file='svm_classifiers.pkl'):
         '''
         Initilize the
-        :param data_file:
+        :param target_data_file:
         :param classifier_file:
         '''
         self.predictions = None
-        self.data_file=data_file
-        self.classifier_file=classifier_file
+        self.ptable = None
+        self.target_data_file = target_data_file
+        self.classifier_file = classifier_file
         self.clfs = None
 
-    def train(self, data_file='data/Final_Berg JBS 2013 Supplemental Table 3_For SVM14Dec2017.xlsx',
-                  mechanism_file='data/Final_Berg JBS 2013 Supplemental Table 3_For SVM14Dec2017 - Mechanisms.xlsx',
-                  impute='group_mean', parameters={'C': [500]}, normalize='l2', dump='svm_classifiers.pkl',
-                  smote=True, prof_num=None):
+    def train(self, training_data_file='data/Final_Berg JBS 2013 Supplemental Table 3_For SVM14Dec2017.xlsx',
+              mechanism_file='data/Final_Berg JBS 2013 Supplemental Table 3_For SVM14Dec2017 - Mechanisms.xlsx',
+              impute='group_mean', parameters={'C': [500]}, normalize='l2', dump='svm_classifiers.pkl',
+              smote=True, prof_num=None):
         '''
         Train the SVM and generate the model.
-        :param data_file: The training data file containg the mechanism profiles.
+        :param training_data_file: The training data file containg the mechanism profiles.
         :param mechanism_file: The file that containg information about the training data
         :param impute: str 'group_mean'. The method to impute missing training data points. See
         :param parameters: map default {'C': [500]}. The grids search training parameters.
@@ -178,15 +188,15 @@ class SVM:
                 classes to be generated is the same as the positive class.
         :return:
         '''
-        pr = ProfileReader(data_file='data/Final_Berg JBS 2013 Supplemental Table 3_For SVM14Dec2017.xlsx',
-                           mechanism_file='data/Final_Berg JBS 2013 Supplemental Table 3_For SVM14Dec2017 - Mechanisms.xlsx')
+        pr = ProfileReader(data_file=training_data_file,
+                           mechanism_file=mechanism_file)
         mechs = pr.get_mechanism_count()['Mechanism']
         clfs = {}
         # ensure reprodicible results
         np.random.seed(442)
         for mech in mechs[0:]:
             # get training data with 100 negative class
-            X, y = pr.get_x_y(mech=mech, impute=impute, normalize=normalize, prof_num=prof_num)
+            X, y = pr.get_x_y(mech=mech, impute=impute, normalize_method=normalize, prof_num=prof_num)
             # Synthetic Minority Oversampling Technique. Bring the positive class numbers up to the random negative class.
             if smote:
                 k_n = min(Counter(y)[1] - 1, 5)
@@ -198,18 +208,18 @@ class SVM:
             joblib.dump(clfs, 'svm_classifiers.pkl')
         return clfs
 
-
-    def predict(self):
+    def predict(self, normalize='l2', remove_neg=True, write_to_file=True, heatmap=True):
         '''
-        Use the results of train_svm to predict mechanism of a drug class.
-        :param data_file: str default 'targets/target.xlsx'. Predict mechanism for these profiles.
-        :param classifier_file: The trained svm model to load.
-        :return: The predicted mechanisms.
+        Use the results of train_svm to predict mechanism of a drug class. The
+        :param normalize: The normalization method used to normalize the training data positive class.
+        :return: DataFrame, DataFrame. The first table one has one profile per row and the predicted mechanisms in
+                    columns. The second DataFrame has the predicted mechanisms all in a single column unpivoted.
         '''
 
         self.clfs = joblib.load(self.classifier_file)
-        pr = TargetProcessor(data_file=self.data_file)
+        pr = TargetProcessor(data_file=self.target_data_file)
         target = pr.get_target()
+        target = ProfileReader.normalize(target, normalize)
 
         ptable0 = pd.DataFrame({'Profile': [],
                                 'Mechanism': [],
@@ -222,19 +232,59 @@ class SVM:
                                    'Mechanism': [mech] * len(target),
                                    'Decision Value': dv,
                                    'Prediction': pred})
+            if remove_neg:
+                ptable = ptable[ptable.Prediction == 1]
             ptable0 = pd.concat([ptable0, ptable])
 
         ptable0 = ptable0[['Profile', 'Mechanism', 'Decision Value', 'Prediction']].sort_values(
             by=['Profile', 'Decision Value'], ascending=[True, False])
 
         self.predictions = ptable0.pivot(index='Profile', columns='Mechanism', values='Decision Value')
+        self.ptable = ptable0
+
+        if write_to_file:
+            fn = '../outputs/SVM prediction.xlsx'
+            try:
+                os.remove(fn)
+            except OSError:
+                pass
+            self.predictions.to_excel(fn, index=True)
+
         return self.predictions
 
-    def heatmap1(self):
-        pr = TargetProcessor(data_file=self.data_file)
-        plt.figure(figsize=(20, pr.get_profile_count()))
+    def heatmap(self):
+        '''
+        Generate a heatmap of the predictions. Note that you should call predict before calling heatmap.
+
+        Usage:
+        svm = SVM()
+        svm.predict()
+        svm.heatmap()
+
+        :return:
+        '''
+        pr = TargetProcessor(data_file=self.target_data_file, verbose=False)
+        plt.figure(figsize=(20, pr.get_profile_count()));
         ax = sns.heatmap(self.predictions, annot=True, fmt=".2", cmap='YlGnBu', cbar=None);
         plt.show()
         return ax
 
+    def get_predictions(self):
+        return self.predictions
 
+    def get_best_class(self):
+        '''
+        Get the list of best predictions for each profile.
+        :return: DataFrame with profile, Mechanism and DV for the best prediction.
+        '''
+        p2 = []
+        for prof, mec in self.predictions.idxmax(1).items():
+            dv = self.ptable[(self.ptable.Profile == prof) & (self.ptable.Mechanism == mec)]['Decision Value'].values[0]
+            a = [prof, mec, dv]
+            p2.append(a)
+
+        p2 = pd.DataFrame(p2)
+        p2.sort_values(by=[1, 0])
+        p2.reset_index(inplace=True, drop=True)
+        p2.columns = ['Profile', 'Mechanism', 'DV']
+        return p2

@@ -48,9 +48,6 @@ class TestProfileReader2(TestCase):
             data_file='Validation/Berg JBS 2013 Supplemental Table 5 - Profiles.xlsx')
         print(pr.get_profile_names())
 
-    #def test_bad_file(self):
-        #pr = ProfileReader(
-        #    data_file='rofiles')
 
     def test_check_target_sm(self):
 

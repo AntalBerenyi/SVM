@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from scripts.random_profiles import RandomProfileGenerator
-from sklearn.preprocessing import Normalizer
+from sklearn.preprocessing import Normalizer, StandardScaler
 
 from IPython.core.debugger import set_trace
 
@@ -272,7 +272,7 @@ class ProfileReader:
             rpg = RandomProfileGenerator(envelope_file='data\\SigEnvelopeFile.xml', data_file=data, skip_cols=0)
         if prof_num is None:
             prof_num = len(data)
-        neg_class = rpg.get_neg_class(prof_num=prof_num, dist=dist )
+        neg_class = rpg.get_neg_class(prof_num=prof_num, dist=dist)
         return neg_class
 
     @staticmethod
@@ -287,12 +287,14 @@ class ProfileReader:
         all_class = pd.concat([pos_class, neg_class]).reset_index(drop=False)
         return all_class
 
-    def get_x_y(self, mech, impute='group_mean', normalize=None, prof_num=None):
+    def get_x_y(self, mech, impute='group_mean', normalize_method=None, prof_num=None):
         """
         Convenience method to split data into X and y. Treat one mechanism at a time.
         :param mech: Get data portion for mechanism class
         :param impute: None | 'group_mean'. If not None, impute the positive class using this imputing strategy.
-        :param normalize: str 'l1', 'l2', 'max'. Normalize input profile vectors to unit length. See sklearn.preprocessing.Normalizer
+        :param normalize_method: str 'l1', 'l2', 'max', 'ss'. Normalize input profile vectors to unit length.
+                            If 'ss', apply standard scaling to each vector, not the feature,
+                            See sklearn.preprocessing.Normalizer, sklearn.preprocessing.StandardScaler
         :param prof_num: None|int. If int then the generate this many members of negative class.
         :return: The training data and the trainig labels.
         """
@@ -301,42 +303,58 @@ class ProfileReader:
             data = self.impute(data, how=impute)
 
         pos_class = data.loc[[mech]]
-        neg_class = self.get_neg_class(data=pos_class, prof_num=prof_num)
+        if normalize_method is not None:
+            pos_class = self.normalize(pos_class, normalize_method)
 
-        all_class = self.combine_pos_neg_class(pos_class, neg_class)
+        neg_class = self.get_neg_class(data=pos_class, prof_num=prof_num)
+        all_class = pd.concat([pos_class, neg_class]).reset_index(drop=False)
 
         # encode mechanism to int values
-        mech = all_class[['mech']].iloc[0,0]
+        mech = all_class[['mech']].iloc[0, 0]
         y = all_class['mech'].map({mech: 1, 'neg_class': 0})
 
         x = all_class.iloc[:, 1:]
         x.set_index(y, inplace=True)
 
-        if normalize is not None:
-            scaler = Normalizer(norm=normalize)  # l1, l2, max
-            cval = x.columns.values
-            x = pd.DataFrame(scaler.fit_transform(x))
-            x.columns = cval
+        # if normalize is not None:
+        #     scaler = Normalizer(norm=normalize)  # l1, l2, max
+        #     cval = x.columns.values
+        #     x = pd.DataFrame(scaler.fit_transform(x))
+        #     x.columns = cval
 
         return x, np.array(y)
 
-    def get_features_labels(self, mech):
-        """
-        This method returns is the grand finale of all pre-processing steps combined. It reads in the training profile
-        data, the mechanism file and the envelop file. It combines the training data with the mechanisms labeling it. It
-        also generates random profiles and concatenates it with the positive class. Then it separates the features and
-        labels into two data structures and returns them.
+    @staticmethod
+    def normalize(pos_class, method='l2'):
+        cval = pos_class.columns.values
+        ind = pos_class.index
+        if method == 'ss':
+            scaler = StandardScaler()
+            pos_class = pd.DataFrame(scaler.fit_transform(pos_class.T)).T
+        if method in ['l1', 'l2', 'max']:
+            scaler = Normalizer(norm=method)  # l1, l2, max
+            pos_class = pd.DataFrame(scaler.fit_transform(pos_class))
+        pos_class.columns = cval
+        pos_class.index = ind
+        return pos_class
 
-        :return:
-        """
-        data = self.get_profile(index=['mech'])
-        pos_class = data.loc[[mech]]
-
-        rpg = RandomProfileGenerator(envelope_file='data\\SigEnvelopeFile.xml', data_file=data, skip_cols=0)
-        neg_class = rpg.get_neg_class(prof_num=len(pos_class), dist='rand')
-        all_class = self.combine_pos_neg_class(pos_class, neg_class)
-
-        return self.get_x_y(all_class)
+    # def get_features_labels(self, mech):
+    #     """
+    #     This method returns is the grand finale of all pre-processing steps combined. It reads in the training profile
+    #     data, the mechanism file and the envelop file. It combines the training data with the mechanisms labeling it. It
+    #     also generates random profiles and concatenates it with the positive class. Then it separates the features and
+    #     labels into two data structures and returns them.
+    #
+    #     :return:
+    #     """
+    #     data = self.get_profile(index=['mech'])
+    #     pos_class = data.loc[[mech]]
+    #
+    #     rpg = RandomProfileGenerator(envelope_file='data\\SigEnvelopeFile.xml', data_file=data, skip_cols=0)
+    #     neg_class = rpg.get_neg_class(prof_num=len(pos_class), dist='rand')
+    #     all_class = self.combine_pos_neg_class(pos_class, neg_class)
+    #
+    #     return self.get_x_y(all_class)
 
 
 class TrainedSystemMarkers:
@@ -430,7 +448,7 @@ class TargetProcessor(ProfileReader):
     as the the trained set.
     """
 
-    def __init__(self, data_file):
+    def __init__(self, data_file, verbose=True):
         """
         Initialize the target profiles and make sure we dont have missing columns or extra columns.
         :param data_file: The target profile data we want to predict. Call the super init method to initialize. Then
@@ -455,7 +473,8 @@ class TargetProcessor(ProfileReader):
             self.df.drop(self.df.index, inplace=True)
             return
 
-        print("Removing extra target colunms:", list(set(self.sm_columns) - set(TrainedSystemMarkers()())))
+        if verbose:
+            print("Removing extra target colunms:", list(set(self.sm_columns) - set(TrainedSystemMarkers()())))
 
         # remove those system-markers that were not trained and rearrange
         self.df = self.df[[self.profile_column_name, *TrainedSystemMarkers()(), 'Mechanism', 'Agent', 'Concentration']]
@@ -466,7 +485,6 @@ class TargetProcessor(ProfileReader):
     def check_missing_sm(self):
         """
         Make sure we have the right system:readouts. We cant do SVM with missing data.
-        :param data_file: Read this file in before processing.
         :return: A list of System:readouts missing from the target data file.
         """
         return list(set(TrainedSystemMarkers()()) - set(self.sm_columns))
