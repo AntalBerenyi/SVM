@@ -243,6 +243,8 @@ class SVM:
         self.ptable = ptable0
 
         if write_to_file:
+            if not os.path.exists('../outputs'):
+                os.makedirs('../outputs')
             fn = '../outputs/SVM prediction.xlsx'
             try:
                 os.remove(fn)
