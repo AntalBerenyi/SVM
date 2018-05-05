@@ -496,13 +496,18 @@ class TargetProcessor(ProfileReader):
     as the the trained set.
     """
 
-    def __init__(self, data_file, verbose=True):
+    def __init__(self, data_file, verbose=True, remove_nulls=True):
         """
         Initialize the target profiles and make sure we dont have missing columns or extra columns.
         :param data_file: The target profile data we want to predict. Call the super init method to initialize. Then
         remove the extra columns and reorder the profile in the same order as the trained model.
         """
         super().__init__(data_file, mechanism_file=None)
+        if remove_nulls:
+            prof_mis = self.df[self.df.isnull().any(1)].iloc[:, 0]
+            print("\n\nProfiles with missing values will not be analyzed:\n\n", '; '.join(prof_mis))
+            self.df = self.df[~self.df.isnull().any(1)]
+
 
         # Note: The model was trained with data from 'SMC_IL-1b/TNF-a/IFN-g_24' system.
         # In the TOXCast data set the this was replaced with 'CASMC_HCL_IL-1b/TNF-a/IFN-g_24' in feature names and
@@ -548,7 +553,7 @@ class TargetProcessor(ProfileReader):
 
     def get_target(self):
         """
-        :return: DataFrame the data portion of the target profiles, prfile as index.
+        :return: DataFrame the data portion of the target profiles, profile as index.
         """
         return self.get_profile(index=['prof'])
 
