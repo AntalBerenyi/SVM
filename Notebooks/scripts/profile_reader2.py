@@ -1,3 +1,4 @@
+import re
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -47,11 +48,45 @@ class ProfileReader:
 
         # merge mechanism date into Data frame, adding new column 'Mechanism'
         self.df = pd.merge(left=self.df, right=mech, how='left')
+
         # add columns for Agent, Concentration
-        self.df['Agent'] = [s.split(',')[2].strip() for s in self.df.iloc[:, 0]]
-        self.df['Concentration'] = [s.split(',')[4].strip() for s in self.df.iloc[:, 0]]
+        agents, concs = self.read_agent_conc()
+        self.df['Agent'] = agents
+        self.df['Concentration'] = concs
 
         return self.df
+
+    def read_agent_conc(self):
+        repeat_pat = re.compile(r'R[0-9]+')
+        bsk_pat = re.compile(r'BSK-[A-Z][0-9]+')
+        agents = []
+        concs = []
+        for s in self.df.iloc[:, 0]:
+            p_i = s.split(r',')
+            conc = p_i[-1].strip()
+            p_i = p_i[:-1]  # remove last element
+            tok = p_i[-1].strip()  # BSK code or agent or part of agent
+
+            result = bsk_pat.match(tok)  # not interested in BSK code
+            if result is not None:
+                p_i = p_i[:-1]
+
+            # now we are left with {A} -> Trusted Profile or {E, R, A} -> Profile
+            # Agent name can contain commas, too!
+            # {A} Exactly one string, Agent name.
+            if len(p_i) == 1:
+                agent = p_i[0].strip()
+            # {E, R, A}, see if middle token has the Regex patters R[0-9]+
+            if len(p_i) >= 3:
+                rep = p_i[1].strip()
+                result = repeat_pat.match(rep)
+                if result is not None:  # we found repeat
+                    p_i = p_i[2:]  # discard experiment and Repeat and use the remaining list from index 2 up as agent name
+                # use the remaining list from index 2 up as agent name
+                agent = ','.join(p_i).strip()
+            concs.append(conc)
+            agents.append(agent)
+        return agents, concs
 
     def get_profile_count(self):
         '''
@@ -59,6 +94,19 @@ class ProfileReader:
         :return: int
         '''
         return len(self.df)
+
+    def check_profile_names(self, verbose=True):
+        bad_profile_names = []
+        pn_format = 'Experiment, R1, Agent Name, BSK-C000001, 30000 nM'
+        format_len = len(pn_format.split(','))
+
+
+        bad_profile_names = [s for s in self.df.iloc[:, 0] if len(s.split(',')) < format_len]
+        if len(bad_profile_names) > 0:
+            print('Invalid Profile name: required profile name format:', pn_format)
+
+
+
 
     def get_profile(self, index=None, column_level=1, columns=None):
         '''

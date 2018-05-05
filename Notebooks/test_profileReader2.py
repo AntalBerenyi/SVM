@@ -1,5 +1,5 @@
 from unittest import TestCase
-from scripts.profile_reader2 import ProfileReader, TrainedSystemMarkers
+from scripts.profile_reader2 import ProfileReader, TrainedSystemMarkers, TargetProcessor
 import pandas as pd
 
 class TestProfileReader2(TestCase):
@@ -59,4 +59,13 @@ class TestProfileReader2(TestCase):
         ssm = set(sm_columns)
         cols_not_in_target = list(tsm - ssm)
         print(cols_not_in_target)
+
+    def test_target_processor_init(self):
+        import os
+        print(os.getcwd())
+        tp = TargetProcessor('../targets/target.xlsx')
+        print(tp.sm_columns)
+
+
+
 
