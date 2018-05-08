@@ -1,9 +1,8 @@
-.ipynb_checkpoints
-.idea/SVM.iml
-.idea/SVM.iml
-.idea/workspace.xml
+**/.ipynb_checkpoints/**
 .ipynb_checkpoints/**
+.idea/
 **/__pycache__/**
 Presentation/**
 targets/**
 outputs*/**
+.idea/SVM.iml
